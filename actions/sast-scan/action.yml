@@ -9,8 +9,9 @@ inputs:
     description: SonarQube token.
     required: true
   project-key:
-    description: SonarQube project key.
-    required: true
+    description: SonarQube project key. If empty, computed as org:repo:branch.
+    required: false
+    default: ""
   project-base-dir:
     description: Base directory of the source project.
     required: false
@@ -31,6 +32,21 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Resolve project key
+      id: project_key
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.project-key }}" ]; then
+          KEY="${{ inputs.project-key }}"
+        else
+          REPO="${GITHUB_REPOSITORY#*/}"
+          ORG="${GITHUB_REPOSITORY%%/*}"
+          BRANCH="${GITHUB_REF_NAME:-unknown}"
+          KEY="${ORG}:${REPO}:${BRANCH}"
+        fi
+        echo "value=${KEY}" >> "$GITHUB_OUTPUT"
+
     - name: SonarQube scan
       uses: SonarSource/sonarqube-scan-action@v5
       env:
@@ -39,7 +55,7 @@ runs:
       with:
         projectBaseDir: ${{ inputs.project-base-dir }}
         args: >-
-          -Dsonar.projectKey=${{ inputs.project-key }}
+          -Dsonar.projectKey=${{ steps.project_key.outputs.value }}
           ${{ inputs.args }}
 
     - name: SonarQube quality gate

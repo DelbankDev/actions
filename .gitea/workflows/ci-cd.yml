@@ -39,7 +39,6 @@ jobs:
         with:
           sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
           sonar-token: ${{ secrets.SONAR_TOKEN }}
-          project-key: ${{ vars.SONAR_PROJECT_KEY }}
           project-base-dir: "."
           quality-gate: "true"
 

@@ -6,7 +6,7 @@ Executa analise SAST com SonarQube e, opcionalmente, valida Quality Gate.
 
 - `sonar-host-url` (obrigatorio)
 - `sonar-token` (obrigatorio)
-- `project-key` (obrigatorio)
+- `project-key` (opcional; default automatico `org:repo:branch`)
 - `project-base-dir` (opcional, default `.`)
 - `args` (opcional)
 - `quality-gate` (opcional, default `false`)
@@ -19,6 +19,5 @@ Executa analise SAST com SonarQube e, opcionalmente, valida Quality Gate.
   with:
     sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
     sonar-token: ${{ secrets.SONAR_TOKEN }}
-    project-key: my-project
     quality-gate: "true"
 ```
