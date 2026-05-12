@@ -1,0 +1,73 @@
+name: ci-cd
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+
+jobs:
+  ci_cd:
+    runs-on: ubuntu-latest
+
+    env:
+      BUILD_ID: ${{ github.run_number }}
+      IMAGE: ${{ vars.IMAGE }}
+      REGISTRY: ${{ vars.REGISTRY }}
+      ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+      ARGOCD_APP_NAME: ${{ vars.ARGOCD_APP_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node project
+        uses: ./actions/setup-node-project
+        with:
+          node-version: "24"
+          working-directory: "."
+
+      - name: Lint
+        uses: ./actions/lint-node
+        with:
+          working-directory: "."
+          lint-command: "npm run lint"
+
+      - name: SAST scan (SonarQube)
+        uses: ./actions/sast-scan
+        with:
+          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+          sonar-token: ${{ secrets.SONAR_TOKEN }}
+          project-key: ${{ vars.SONAR_PROJECT_KEY }}
+          project-base-dir: "."
+          quality-gate: "true"
+
+      - name: Docker build and push
+        id: docker
+        uses: ./actions/docker-build-push
+        with:
+          registry: ${{ env.REGISTRY }}
+          image: ${{ env.IMAGE }}
+          registry-username: ${{ secrets.REGISTRY_USERNAME }}
+          registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+          build-id: ${{ env.BUILD_ID }}
+          push-latest: "true"
+          context: "."
+          dockerfile: "Dockerfile"
+
+      - name: ArgoCD sync/wait
+        uses: ./actions/argocd-sync-wait
+        with:
+          argocd-server: ${{ env.ARGOCD_SERVER }}
+          argocd-username: ${{ secrets.ARGOCD_USERNAME }}
+          argocd-password: ${{ secrets.ARGOCD_PASSWORD }}
+          app-name: ${{ env.ARGOCD_APP_NAME }}
+          sync: "false"
+          timeout-seconds: "300"
+
+      - name: Show published image
+        shell: bash
+        run: |
+          echo "Published image (build-id): ${{ steps.docker.outputs.image_build_tag }}"
+          echo "Published image (latest): ${{ steps.docker.outputs.image_latest_tag }}"

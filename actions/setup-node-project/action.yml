@@ -1,0 +1,35 @@
+name: setup-node-project
+description: Setup Node.js and install project dependencies via npm ci.
+
+inputs:
+  node-version:
+    description: Node.js version (example: 20, 22, 24). If empty, setup-node defaults are used.
+    required: false
+    default: ""
+  working-directory:
+    description: Directory containing package.json and lockfile.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js (explicit version)
+      if: ${{ inputs.node-version != '' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+    - name: Setup Node.js (project default)
+      if: ${{ inputs.node-version == '' }}
+      uses: actions/setup-node@v4
+      with:
+        cache: npm
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm ci

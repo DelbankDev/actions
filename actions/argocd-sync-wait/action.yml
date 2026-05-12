@@ -1,0 +1,116 @@
+name: argocd-sync-wait
+description: Validate ArgoCD app health/sync status and optionally trigger sync.
+
+inputs:
+  argocd-server:
+    description: ArgoCD server hostname or URL.
+    required: true
+  argocd-username:
+    description: ArgoCD username (optional when token is set).
+    required: false
+    default: ""
+  argocd-password:
+    description: ArgoCD password (optional when token is set).
+    required: false
+    default: ""
+  argocd-token:
+    description: ArgoCD auth token (optional alternative to username/password).
+    required: false
+    default: ""
+  app-name:
+    description: ArgoCD application name.
+    required: true
+  sync:
+    description: Run argocd app sync before wait.
+    required: false
+    default: "false"
+  revision:
+    description: Optional revision to sync.
+    required: false
+    default: ""
+  timeout-seconds:
+    description: Timeout in seconds for wait command.
+    required: false
+    default: "300"
+  insecure:
+    description: Add --insecure to argocd commands.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Install ArgoCD CLI if missing
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v argocd >/dev/null 2>&1; then
+          curl -sSL -o /tmp/argocd "https://${{ inputs.argocd-server }}/download/argocd-linux-amd64"
+          chmod +x /tmp/argocd
+          mkdir -p "$HOME/.local/bin"
+          mv /tmp/argocd "$HOME/.local/bin/argocd"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        fi
+
+    - name: Login on ArgoCD
+      shell: bash
+      run: |
+        set -euo pipefail
+        INSECURE_FLAG=""
+        if [ "${{ inputs.insecure }}" = "true" ]; then
+          INSECURE_FLAG="--insecure"
+        fi
+
+        if [ -n "${{ inputs.argocd-token }}" ]; then
+          echo "Using token authentication"
+          echo "ARGOCD_AUTH_TOKEN=${{ inputs.argocd-token }}" >> "$GITHUB_ENV"
+          echo "ARGOCD_SERVER=${{ inputs.argocd-server }}" >> "$GITHUB_ENV"
+        else
+          argocd login "${{ inputs.argocd-server }}" \
+            --username "${{ inputs.argocd-username }}" \
+            --password "${{ inputs.argocd-password }}" \
+            $INSECURE_FLAG
+          echo "ARGOCD_SERVER=${{ inputs.argocd-server }}" >> "$GITHUB_ENV"
+        fi
+
+    - name: Sync application
+      if: ${{ inputs.sync == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        INSECURE_FLAG=""
+        if [ "${{ inputs.insecure }}" = "true" ]; then
+          INSECURE_FLAG="--insecure"
+        fi
+
+        AUTH_FLAGS=""
+        if [ -n "${ARGOCD_AUTH_TOKEN:-}" ]; then
+          AUTH_FLAGS="--auth-token ${ARGOCD_AUTH_TOKEN} --server ${ARGOCD_SERVER}"
+        fi
+
+        if [ -n "${{ inputs.revision }}" ]; then
+          argocd app sync "${{ inputs.app-name }}" --revision "${{ inputs.revision }}" $INSECURE_FLAG $AUTH_FLAGS
+        else
+          argocd app sync "${{ inputs.app-name }}" $INSECURE_FLAG $AUTH_FLAGS
+        fi
+
+    - name: Wait for Healthy/Synced
+      shell: bash
+      run: |
+        set -euo pipefail
+        INSECURE_FLAG=""
+        if [ "${{ inputs.insecure }}" = "true" ]; then
+          INSECURE_FLAG="--insecure"
+        fi
+
+        AUTH_FLAGS=""
+        if [ -n "${ARGOCD_AUTH_TOKEN:-}" ]; then
+          AUTH_FLAGS="--auth-token ${ARGOCD_AUTH_TOKEN} --server ${ARGOCD_SERVER}"
+        fi
+
+        argocd app wait "${{ inputs.app-name }}" \
+          --health \
+          --sync \
+          --timeout "${{ inputs.timeout-seconds }}" \
+          $INSECURE_FLAG \
+          $AUTH_FLAGS

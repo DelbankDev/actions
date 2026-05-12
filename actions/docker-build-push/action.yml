@@ -1,0 +1,91 @@
+name: docker-build-push
+description: Login, build and push Docker image with build-id and optional latest tags.
+
+inputs:
+  registry:
+    description: Docker registry host (example: ghcr.io, registry.example.com).
+    required: true
+  image:
+    description: Full image repository path without tag (example: registry.example.com/org/app).
+    required: true
+  registry-username:
+    description: Registry username.
+    required: true
+  registry-password:
+    description: Registry password or token.
+    required: true
+  build-id:
+    description: Build identifier used as image tag.
+    required: true
+  push-latest:
+    description: Push latest tag in addition to build-id tag.
+    required: false
+    default: "true"
+  context:
+    description: Docker build context.
+    required: false
+    default: "."
+  dockerfile:
+    description: Path to Dockerfile.
+    required: false
+    default: "Dockerfile"
+
+outputs:
+  image_build_tag:
+    description: Tagged image using build-id.
+    value: ${{ steps.meta.outputs.image_build_tag }}
+  image_latest_tag:
+    description: Tagged image using latest (empty when push-latest is false).
+    value: ${{ steps.meta.outputs.image_latest_tag }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compose image tags
+      id: meta
+      shell: bash
+      run: |
+        set -euo pipefail
+        IMAGE_BUILD_TAG="${{ inputs.image }}:${{ inputs.build-id }}"
+        IMAGE_LATEST_TAG=""
+        if [ "${{ inputs.push-latest }}" = "true" ]; then
+          IMAGE_LATEST_TAG="${{ inputs.image }}:latest"
+        fi
+
+        echo "image_build_tag=${IMAGE_BUILD_TAG}" >> "$GITHUB_OUTPUT"
+        echo "image_latest_tag=${IMAGE_LATEST_TAG}" >> "$GITHUB_OUTPUT"
+
+    - name: Login to registry
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "${{ inputs.registry-password }}" | docker login "${{ inputs.registry }}" -u "${{ inputs.registry-username }}" --password-stdin
+
+    - name: Build image
+      shell: bash
+      run: |
+        set -euo pipefail
+        docker build \
+          -f "${{ inputs.dockerfile }}" \
+          -t "${{ steps.meta.outputs.image_build_tag }}" \
+          "${{ inputs.context }}"
+
+    - name: Tag latest
+      if: ${{ inputs.push-latest == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        docker tag "${{ steps.meta.outputs.image_build_tag }}" "${{ steps.meta.outputs.image_latest_tag }}"
+
+    - name: Push build-id tag
+      shell: bash
+      run: |
+        set -euo pipefail
+        docker push "${{ steps.meta.outputs.image_build_tag }}"
+
+    - name: Push latest tag
+      if: ${{ inputs.push-latest == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        docker push "${{ steps.meta.outputs.image_latest_tag }}"
