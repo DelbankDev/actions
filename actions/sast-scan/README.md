@@ -11,6 +11,7 @@ Executa analise SAST com SonarQube e, opcionalmente, valida Quality Gate.
 - `args` (opcional)
 - `quality-gate` (opcional, default `false`)
 - `quality-gate-timeout` (opcional, default `300`)
+- `enforce` (opcional, default `true`)
 
 ## Uso
 
@@ -20,4 +21,16 @@ Executa analise SAST com SonarQube e, opcionalmente, valida Quality Gate.
     sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
     sonar-token: ${{ secrets.SONAR_TOKEN }}
     quality-gate: "true"
+    enforce: "true"
+```
+
+## Modo nao-bloqueante
+
+```yaml
+- uses: ./actions/sast-scan
+  with:
+    sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+    sonar-token: ${{ secrets.SONAR_TOKEN }}
+    quality-gate: "true"
+    enforce: "false"
 ```

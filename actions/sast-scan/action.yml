@@ -28,6 +28,10 @@ inputs:
     description: "Timeout in seconds for quality gate wait."
     required: false
     default: "300"
+  enforce:
+    description: "When true, Sonar scan/quality gate errors fail the action. When false, errors are warnings."
+    required: false
+    default: "true"
 
 runs:
   using: composite
@@ -48,6 +52,8 @@ runs:
         echo "value=${KEY}" >> "$GITHUB_OUTPUT"
 
     - name: SonarQube scan
+      id: sonar_scan
+      continue-on-error: ${{ inputs.enforce != 'true' }}
       uses: SonarSource/sonarqube-scan-action@v5
       env:
         SONAR_TOKEN: ${{ inputs.sonar-token }}
@@ -58,8 +64,15 @@ runs:
           -Dsonar.projectKey=${{ steps.project_key.outputs.value }}
           ${{ inputs.args }}
 
+    - name: SonarQube scan warning (non-blocking)
+      if: ${{ inputs.enforce != 'true' && steps.sonar_scan.outcome == 'failure' }}
+      shell: bash
+      run: echo "::warning::SonarQube scan failed, but enforce=false; continuing pipeline."
+
     - name: SonarQube quality gate
+      id: sonar_quality_gate
       if: ${{ inputs.quality-gate == 'true' }}
+      continue-on-error: ${{ inputs.enforce != 'true' }}
       uses: SonarSource/sonarqube-quality-gate-action@v1.2.0
       timeout-minutes: 10
       env:
@@ -67,3 +80,8 @@ runs:
         SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
       with:
         pollingTimeoutSec: ${{ inputs.quality-gate-timeout }}
+
+    - name: SonarQube quality gate warning (non-blocking)
+      if: ${{ inputs.quality-gate == 'true' && inputs.enforce != 'true' && steps.sonar_quality_gate.outcome == 'failure' }}
+      shell: bash
+      run: echo "::warning::SonarQube quality gate failed, but enforce=false; continuing pipeline."
