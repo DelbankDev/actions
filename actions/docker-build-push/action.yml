@@ -7,7 +7,20 @@ inputs:
     required: true
   image:
     description: "Full image repository path without tag (example: registry.example.com/org/app)."
-    required: true
+    required: false
+    default: ""
+  image-namespace:
+    description: "Registry namespace/project when image is not explicitly provided (example: delbank-1)."
+    required: false
+    default: ""
+  repository:
+    description: "Repository slug used to compute image name when image is not explicitly provided (example: org/app)."
+    required: false
+    default: ""
+  ref-name:
+    description: "Branch/tag name used to compute image name when image is not explicitly provided."
+    required: false
+    default: ""
   registry-username:
     description: "Registry username."
     required: true
@@ -31,6 +44,9 @@ inputs:
     default: "Dockerfile"
 
 outputs:
+  image_repository:
+    description: "Resolved image repository path without tag."
+    value: ${{ steps.resolve-image.outputs.image_repository }}
   image_build_tag:
     description: "Tagged image using build-id."
     value: ${{ steps.meta.outputs.image_build_tag }}
@@ -41,11 +57,40 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Resolve image repository
+      id: resolve-image
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        IMAGE_INPUT="${{ inputs.image }}"
+        if [ -n "$IMAGE_INPUT" ]; then
+          IMAGE_REPOSITORY="$IMAGE_INPUT"
+        else
+          NAMESPACE="${{ inputs.image-namespace }}"
+          REPOSITORY_INPUT="${{ inputs.repository }}"
+          REF_NAME_INPUT="${{ inputs.ref-name }}"
+
+          if [ -z "$NAMESPACE" ] || [ -z "$REPOSITORY_INPUT" ] || [ -z "$REF_NAME_INPUT" ]; then
+            echo "::error::When 'image' is empty, provide 'image-namespace', 'repository' and 'ref-name'."
+            exit 1
+          fi
+
+          REPO_LOWER="$(echo "$REPOSITORY_INPUT" | tr '[:upper:]' '[:lower:]')"
+          REPO_NAME_ONLY="${REPO_LOWER##*/}"
+          BRANCH_LOWER="$(echo "$REF_NAME_INPUT" | tr '[:upper:]' '[:lower:]')"
+          BRANCH_NORMALIZED="${BRANCH_LOWER//\//-}"
+          IMAGE_NAME="${REPO_NAME_ONLY}-${BRANCH_NORMALIZED}"
+          IMAGE_REPOSITORY="${{ inputs.registry }}/${NAMESPACE}/${IMAGE_NAME}"
+        fi
+
+        echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
+
     - name: Validate image reference
       shell: bash
       run: |
         set -euo pipefail
-        IMAGE="${{ inputs.image }}"
+        IMAGE="${{ steps.resolve-image.outputs.image_repository }}"
 
         if [[ "$IMAGE" =~ [A-Z] ]]; then
           echo "::error::Invalid Docker image repository: '${IMAGE}'. Repository name must be lowercase."
@@ -68,10 +113,10 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        IMAGE_BUILD_TAG="${{ inputs.image }}:${{ inputs.build-id }}"
+        IMAGE_BUILD_TAG="${{ steps.resolve-image.outputs.image_repository }}:${{ inputs.build-id }}"
         IMAGE_LATEST_TAG=""
         if [ "${{ inputs.push-latest }}" = "true" ]; then
-          IMAGE_LATEST_TAG="${{ inputs.image }}:latest"
+          IMAGE_LATEST_TAG="${{ steps.resolve-image.outputs.image_repository }}:latest"
         fi
 
         echo "image_build_tag=${IMAGE_BUILD_TAG}" >> "$GITHUB_OUTPUT"

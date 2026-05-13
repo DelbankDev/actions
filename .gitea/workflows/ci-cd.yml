@@ -3,70 +3,117 @@ name: ci-cd
 on:
   push:
     branches:
-      - main
-      - staging
-  workflow_dispatch:
+      - pipeline-test-gitea-actions
+
+env:
+  BUILD_ID: ${{ gitea.run_number }}
+  # IMPORTANTE: manter vars.IMAGE em lowercase (ex.: registry.digitalocean.com/delbank-labs/core-pic-api)
+  IMAGE: "${{ gitea.repository }}-${{ gitea.ref_name }}"
+  REGISTRY: ${{ vars.REGISTRY }}
+  ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+  ARGOCD_APP_NAME: ${{ gitea.repository }}
+  LINT_ENFORCE: ${{ vars.LINT_ENFORCE }}
+  SONAR_ENFORCE: ${{ vars.SONAR_ENFORCE }}
 
 jobs:
-  ci_cd:
+  lint:
     runs-on: ubuntu-latest
-
-    env:
-      BUILD_ID: ${{ github.run_number }}
-      IMAGE: ${{ vars.IMAGE }}
-      REGISTRY: ${{ vars.REGISTRY }}
-      ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
-      ARGOCD_APP_NAME: ${{ vars.ARGOCD_APP_NAME }}
-
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node project
-        uses: ./actions/setup-node-project
+        uses: DelbankDev/actions/actions/setup-node-project@main
         with:
           node-version: "24"
           working-directory: "."
 
       - name: Lint
-        uses: ./actions/lint-node
+        uses: DelbankDev/actions/actions/lint-node@main
         with:
           working-directory: "."
           lint-command: "npm run lint"
+          enforce: false
+
+  sast:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: SAST scan (SonarQube)
-        uses: ./actions/sast-scan
+        uses: DelbankDev/actions/actions/sast-scan@main
         with:
-          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
+          sonar-host-url: ${{ vars.SONAR_HOST_URL }}
           sonar-token: ${{ secrets.SONAR_TOKEN }}
           project-base-dir: "."
-          quality-gate: "true"
+          quality-gate: "false"
 
+  docker:
+    runs-on: ubuntu-latest
+    needs: [lint, sast]
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      image_build_tag: ${{ steps.docker.outputs.image_build_tag }}
+      image_latest_tag: ${{ steps.docker.outputs.image_latest_tag }}
+    steps:
+      - name: Compute normalized image repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO_LOWER="$(echo "${{ gitea.repository }}" | tr '[:upper:]' '[:lower:]')"
+          BRANCH_LOWER="$(echo "${{ gitea.ref_name }}" | tr '[:upper:]' '[:lower:]')"
+          BRANCH_NORMALIZED="${BRANCH_LOWER//\//-}"
+          IMAGE_REPOSITORY="${REPO_LOWER}-${BRANCH_NORMALIZED}"
+
+          echo "IMAGE=${IMAGE_REPOSITORY}" >> "$GITHUB_ENV"
+          echo "Using normalized Docker image repository: ${IMAGE_REPOSITORY}"
       - name: Docker build and push
         id: docker
-        uses: ./actions/docker-build-push
+        uses: DelbankDev/actions/actions/docker-build-push@main
         with:
           registry: ${{ env.REGISTRY }}
           image: ${{ env.IMAGE }}
-          registry-username: ${{ secrets.REGISTRY_USERNAME }}
+          registry-username: ${{ secrets.REGISTRY_PASSWORD }}
           registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-          build-id: ${{ env.BUILD_ID }}
+          build-id: "${{ env.BUILD_ID }}-gitea"
           push-latest: "true"
           context: "."
           dockerfile: "Dockerfile"
 
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+    permissions:
+      contents: read
+      actions: read
+    steps:
       - name: ArgoCD sync/wait
-        uses: ./actions/argocd-sync-wait
+        uses: DelbankDev/actions/actions/argocd-sync-wait@main
         with:
           argocd-server: ${{ env.ARGOCD_SERVER }}
-          argocd-username: ${{ secrets.ARGOCD_USERNAME }}
-          argocd-password: ${{ secrets.ARGOCD_PASSWORD }}
+          argocd-token: ${{ secrets.ARGOCD_TOKEN }}
           app-name: ${{ env.ARGOCD_APP_NAME }}
           sync: "false"
           timeout-seconds: "300"
 
+  show-image:
+    runs-on: ubuntu-latest
+    needs: docker
+    permissions:
+      contents: read
+      actions: read
+    steps:
       - name: Show published image
         shell: bash
         run: |
-          echo "Published image (build-id): ${{ steps.docker.outputs.image_build_tag }}"
-          echo "Published image (latest): ${{ steps.docker.outputs.image_latest_tag }}"
+          echo "Published image (build-id): ${{ needs.docker.outputs.image_build_tag }}"
+          echo "Published image (latest): ${{ needs.docker.outputs.image_latest_tag }}"

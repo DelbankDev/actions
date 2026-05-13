@@ -5,7 +5,10 @@ Faz login no registry, builda e publica imagem com tag de build e, opcionalmente
 ## Inputs
 
 - `registry` (obrigatorio)
-- `image` (obrigatorio, sem tag)
+- `image` (opcional, sem tag)
+- `image-namespace` (opcional; obrigatorio quando `image` nao for informado)
+- `repository` (opcional; obrigatorio quando `image` nao for informado)
+- `ref-name` (opcional; obrigatorio quando `image` nao for informado)
 - `registry-username` (obrigatorio)
 - `registry-password` (obrigatorio)
 - `build-id` (obrigatorio)
@@ -29,6 +32,21 @@ Faz login no registry, builda e publica imagem com tag de build e, opcionalmente
     registry-username: ${{ secrets.REGISTRY_USERNAME }}
     registry-password: ${{ secrets.REGISTRY_PASSWORD }}
     build-id: ${{ github.run_number }}
+```
+
+Ou gerar o nome automaticamente:
+
+```yaml
+- id: docker
+  uses: ./actions/docker-build-push
+  with:
+    registry: registry.digitalocean.com
+    image-namespace: delbank-1
+    repository: ${{ gitea.repository }}
+    ref-name: ${{ gitea.ref_name }}
+    registry-username: ${{ secrets.REGISTRY_USERNAME }}
+    registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+    build-id: "${{ gitea.run_number }}-gitea"
 ```
 
 ## Erro comum
