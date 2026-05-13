@@ -1,13 +1,13 @@
 name: setup-node-project
-description: Setup Node.js and install project dependencies via npm ci.
+description: "Setup Node.js and install project dependencies via npm ci."
 
 inputs:
   node-version:
-    description: Node.js version (example: 20, 22, 24). If empty, setup-node defaults are used.
+    description: "Node.js version (example: 20, 22, 24). If empty, setup-node defaults are used."
     required: false
     default: ""
   working-directory:
-    description: Directory containing package.json and lockfile.
+    description: "Directory containing package.json and lockfile."
     required: false
     default: "."
 

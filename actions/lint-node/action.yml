@@ -1,13 +1,13 @@
 name: lint-node
-description: Run lint command for a Node.js project.
+description: "Run lint command for a Node.js project."
 
 inputs:
   working-directory:
-    description: Directory where lint command should run.
+    description: "Directory where lint command should run."
     required: false
     default: "."
   lint-command:
-    description: Lint command to execute.
+    description: "Lint command to execute."
     required: false
     default: "npm run lint"
 

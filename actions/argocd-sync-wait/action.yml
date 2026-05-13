@@ -1,39 +1,39 @@
 name: argocd-sync-wait
-description: Validate ArgoCD app health/sync status and optionally trigger sync.
+description: "Validate ArgoCD app health/sync status and optionally trigger sync."
 
 inputs:
   argocd-server:
-    description: ArgoCD server hostname or URL.
+    description: "ArgoCD server hostname or URL."
     required: true
   argocd-username:
-    description: ArgoCD username (optional when token is set).
+    description: "ArgoCD username (optional when token is set)."
     required: false
     default: ""
   argocd-password:
-    description: ArgoCD password (optional when token is set).
+    description: "ArgoCD password (optional when token is set)."
     required: false
     default: ""
   argocd-token:
-    description: ArgoCD auth token (optional alternative to username/password).
+    description: "ArgoCD auth token (optional alternative to username/password)."
     required: false
     default: ""
   app-name:
-    description: ArgoCD application name.
+    description: "ArgoCD application name."
     required: true
   sync:
-    description: Run argocd app sync before wait.
+    description: "Run argocd app sync before wait."
     required: false
     default: "false"
   revision:
-    description: Optional revision to sync.
+    description: "Optional revision to sync."
     required: false
     default: ""
   timeout-seconds:
-    description: Timeout in seconds for wait command.
+    description: "Timeout in seconds for wait command."
     required: false
     default: "300"
   insecure:
-    description: Add --insecure to argocd commands.
+    description: "Add --insecure to argocd commands."
     required: false
     default: "false"
 

@@ -1,41 +1,41 @@
 name: docker-build-push
-description: Login, build and push Docker image with build-id and optional latest tags.
+description: "Login, build and push Docker image with build-id and optional latest tags."
 
 inputs:
   registry:
-    description: Docker registry host (example: ghcr.io, registry.example.com).
+    description: "Docker registry host (example: ghcr.io, registry.example.com)."
     required: true
   image:
-    description: Full image repository path without tag (example: registry.example.com/org/app).
+    description: "Full image repository path without tag (example: registry.example.com/org/app)."
     required: true
   registry-username:
-    description: Registry username.
+    description: "Registry username."
     required: true
   registry-password:
-    description: Registry password or token.
+    description: "Registry password or token."
     required: true
   build-id:
-    description: Build identifier used as image tag.
+    description: "Build identifier used as image tag."
     required: true
   push-latest:
-    description: Push latest tag in addition to build-id tag.
+    description: "Push latest tag in addition to build-id tag."
     required: false
     default: "true"
   context:
-    description: Docker build context.
+    description: "Docker build context."
     required: false
     default: "."
   dockerfile:
-    description: Path to Dockerfile.
+    description: "Path to Dockerfile."
     required: false
     default: "Dockerfile"
 
 outputs:
   image_build_tag:
-    description: Tagged image using build-id.
+    description: "Tagged image using build-id."
     value: ${{ steps.meta.outputs.image_build_tag }}
   image_latest_tag:
-    description: Tagged image using latest (empty when push-latest is false).
+    description: "Tagged image using latest (empty when push-latest is false)."
     value: ${{ steps.meta.outputs.image_latest_tag }}
 
 runs:

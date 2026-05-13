@@ -1,31 +1,31 @@
 name: sast-scan
-description: Run SonarQube scan and optional quality gate check.
+description: "Run SonarQube scan and optional quality gate check."
 
 inputs:
   sonar-host-url:
-    description: SonarQube server URL.
+    description: "SonarQube server URL."
     required: true
   sonar-token:
-    description: SonarQube token.
+    description: "SonarQube token."
     required: true
   project-key:
-    description: SonarQube project key. If empty, computed as org:repo:branch.
+    description: "SonarQube project key. If empty, computed as org:repo:branch."
     required: false
     default: ""
   project-base-dir:
-    description: Base directory of the source project.
+    description: "Base directory of the source project."
     required: false
     default: "."
   args:
-    description: Extra sonar scanner arguments.
+    description: "Extra sonar scanner arguments."
     required: false
     default: ""
   quality-gate:
-    description: When true, enforce SonarQube quality gate.
+    description: "When true, enforce SonarQube quality gate."
     required: false
     default: "false"
   quality-gate-timeout:
-    description: Timeout in seconds for quality gate wait.
+    description: "Timeout in seconds for quality gate wait."
     required: false
     default: "300"
 
