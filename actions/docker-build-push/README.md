@@ -30,3 +30,11 @@ Faz login no registry, builda e publica imagem com tag de build e, opcionalmente
     registry-password: ${{ secrets.REGISTRY_PASSWORD }}
     build-id: ${{ github.run_number }}
 ```
+
+## Erro comum
+
+Se aparecer `invalid reference format: repository name must be lowercase`, o valor de `image` esta invalido.
+
+- Garanta que `image` esteja em lowercase.
+- Garanta formato sem tag, por exemplo: `registry.digitalocean.com/org/app`.
+- Em pipelines com variavel, ajuste `vars.IMAGE` no repositório consumidor.

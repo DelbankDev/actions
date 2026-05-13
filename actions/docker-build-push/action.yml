@@ -41,6 +41,28 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate image reference
+      shell: bash
+      run: |
+        set -euo pipefail
+        IMAGE="${{ inputs.image }}"
+
+        if [[ "$IMAGE" =~ [A-Z] ]]; then
+          echo "::error::Invalid Docker image repository: '${IMAGE}'. Repository name must be lowercase."
+          echo "::error::Update repository variable vars.IMAGE to lowercase. Example: registry.digitalocean.com/org/app"
+          exit 1
+        fi
+
+        # Repository path components must be lowercase alphanumeric and may include separators . _ -
+        # Optional registry host prefix with optional :port is supported.
+        IMAGE_RE='^(([a-z0-9]+([.-][a-z0-9]+)*)(:[0-9]+)?/)?([a-z0-9]+([._-][a-z0-9]+)*)(/[a-z0-9]+([._-][a-z0-9]+)*)*$'
+        if ! [[ "$IMAGE" =~ $IMAGE_RE ]]; then
+          echo "::error::Invalid Docker image repository format: '${IMAGE}'."
+          echo "::error::Expected format (no tag): registry.digitalocean.com/org/app"
+          echo "::error::Fix vars.IMAGE in the consumer repository."
+          exit 1
+        fi
+
     - name: Compose image tags
       id: meta
       shell: bash
